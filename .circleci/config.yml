@@ -1,0 +1,45 @@
+version: 2.1
+
+# orbs:
+#   android: circleci/android@0.2.1
+
+jobs:
+  build:
+    docker:
+      - image: circleci/android:api-28-ndk
+
+    environment:
+      JVM_OPTS: -Xmx1200m
+      GRADLE_HOME: /tmp/gradle-6.7.1
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: cch-{{ .Branch }}-{{ checksum ".circleci/config.yml" }}
+
+      - run: sudo apt-get update -y && sudo apt-get install -y zip unzip curl wget cmake ninja-build
+      - run: 
+          name: Download Gradle 6.7
+          command: |
+            if [ -d "${GRADLE_HOME}" ]; then
+              ${GRADLE_HOME}/bin/gradle --version;
+            else
+              wget https://services.gradle.org/distributions/gradle-6.7.1-bin.zip;
+              unzip ./gradle-6.7.1-bin.zip -d /tmp;
+              ${GRADLE_HOME}/bin/gradle --version;
+            fi
+      - run:
+          name: Gradle Android Dependencies
+          command: |
+            ${GRADLE_HOME}/bin/gradle androidDependencies
+      - save_cache:
+          paths:
+            - ~/.gradle
+            - /tmp/gradle-6.7.1 # GRADLE_HOME
+          key: cch-{{ .Branch }}-{{ checksum ".circleci/config.yml" }}
+          when: always
+
+      - run:
+          name: Gradle Assemble
+          command: |
+            ${GRADLE_HOME}/bin/gradle clean assemble
